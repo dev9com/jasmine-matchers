@@ -79,3 +79,138 @@ in the test results, otherwise it is swallowed.  Unless the `.not` operator was 
 So what we do is we check assertion, if it returns false we generate an error explaining that we wanted the condition
 to be true.  If it returns true we generate an error that explains that we did not want this condition to be true.  
 
+The last bit, and perhaps the most important, is the debugging output in the response message. `angular.mock.dump(actual)`
+turns a cryptic error with very little useful content into a message that contains the object under test.  In this case
+it's a DOM element, and so the user will have a much better idea of what's broken and can hone in on the solution more
+quickly.
+
+
+Loading Matchers
+================
+
+### The Problem
+
+In the old days with Jasmine there were many ways to get your Matchers loaded.  You could just poke them into one of the
+data structures.  However Angular does some monkey patching of Jasmine and several of the old strategies no longer work.
+In the official Jasmine documentation they recommend loading the matchers at the top of every test suite.  While this
+is compatible with Angular's strategy of reloading Jasmine over and over again, the tendency toward many small modules
+with small test suites and that boilerplate can get a bit crazy.
+
+### The Solution
+
+Some clever people figured out that a naked beforeEach (outside of a `describe()`) works just fine in Angular.js.  
+
+    /**
+     * matchers.js
+     **/
+    
+    beforeEach(function () {
+        jasmine.addMatchers({
+            toContainText: function () {
+                ...
+            },
+            toHaveClass: function () {
+                ...
+            },
+            toBeHidden: function () {
+                ...
+            }
+        });
+    });
+  
+If you load the matchers before the first test file, then this block will load before every test, and you're good.  
+Jasmine is so fast that running this bit of boilerplate before every test hardly impacts your test speed.  On my last
+project our unit tests averaged 15 milliseconds per test (1400 in 22 seconds), which is well within the range of the 
+definition of 'fast unit tests'.
+
+I've provided a [matchers.js](https://raw.githubusercontent.com/dev9com/jasmine-matchers/master/matchers.js) file for 
+you, containing this setup pattern along with a few of my favorite Angular-compatible matchers.  
+
+
+Designing a good matcher
+======================
+
+One of the tenets of Testing is that unit tests should test (or assert) exactly one thing.  This means you set up a 
+scenario, and then prove that one single, specific aspect of that scenario holds true.  In real code it's common for a 
+single scenario to have a number of consequences, and if you want one assertion per test that means you're going to be 
+repeating a lot of effort and code.  
+
+The setup and teardown (beforeEach, afterEach) methods remove the Lion's Share of boilerplate from your tests, and in
+Jasmine they can go even farther because you can organize partly related tests with nested setup methods, removing far
+more duplication from your boilerplate.
+
+But after the setup and before the teardown there is often a smaller but far more important tangle of repetitive code
+that sets up the conditions for the assertion.  Some people write their own custom helper functions to deal with this, 
+but a Matcher is usually the correct solution to this problem.
+
+## Pick something to match
+
+As with refactoring normal code, your goal is to end up with a set of short and sweet functions with descriptive names
+and straightforward internals.  
+
+Things to consider for a Matcher:
+
+1. Do I have lots of scenarios that lead to the same outcome?
+1. Do I use the same Object in many places to report an outcome?
+1. Do I have lots of objects that behave similarly?
+
+The last one requires some caution.  'Similar' code often indicates a missing level of refactoring is needed. Trying to
+create a matcher prior to doing this work may actually complicate the rework.  It's a matter of when you need coverage
+on the code and which sources of pain you can avoid.
+
+In an Angular app the conceptual space is pretty small, so this work can be pretty obvious in many situations.  You
+have lots of code that deals with JSON responses, lots of code that works with DOM elements, and both can benefit from 
+having Matchers that test attributes, presence of children, String comparisons (loose and strict), etc.  
+
+## Reporting is Key
+
+The big rule for any Matcher is that you have to clearly state what the problem is in a failure condition.  Remember
+that we write tests largely to help keep people from accidentally breaking our code later in the project.  During that 
+delicate time where they're trying to write a new feature, a good error message can often tell the person what they
+broke without them having to context switch to look at your test.  
+
+And in the case of a bug, remember that the person fixing it may already be frustrated with the situation before work
+starts, don't pile onto that frustration with cryptic or subtly misleading test failure messages. Be kind. The sanity
+you save may be your own.
+
+There is a short list of things I always put into my matcher messages:
+
+1. The actual and expected values must appear
+1. The actual should always appear before the expected. Common convention avoids confusion.
+1. Using a `dump()` method to report the entire 'actual' object is wordy, but may save you from starting the debugger
+1. The values should be bracketed in some way so whitespace errors are obvious
+
+
+Bracketing turns this:
+
+    Expected  foo to be foo
+
+into this:
+
+    Expected ' foo' to be 'foo'
+
+You may notice the error in the first message immediately, or you might not. If you don't, you'll feel pretty stupid
+later on.  But is that extra whitespace an error in the code, or did I get the string concatenation wrong in my Matcher
+and that extra whitespace is a red herring?  The latter message makes it pretty dead obvious what happened, and takes
+only a couple seconds longer to write.
+
+## Always double-check your work
+
+Rule #1 of Matchers: Any time you change a matcher, force some tests to fail to verify that the error makes sense.
+
+It's easy to get the boolean logic wrong and have a set of tests that fail silently.  It's easy to invert the meaning 
+of the error message and not notice.  It's really pretty easy to check:
+
+    expect(answer).toEqual('blah');
+    
+Just try both of these negative tests:
+
+    // Check the error message
+    expect(answer).not.toEqual('blah');
+
+    // Check the equality test
+    expect(answer).toEqual('something else');
+
+And maybe throw in a null check, and you've got a pretty good idea that your matcher won't fail on you later.
+
+Good luck!

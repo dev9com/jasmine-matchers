@@ -17,7 +17,7 @@ beforeEach(function () {
 
                     return {
                         pass: pass,
-                        message: "Expected '" + angular.mock.dump(actual) + "' " + toHave + " the text '" + expected + "'"
+                        message: "Expected '" + angular.mock.dump(actual) + "' " + toHave + " the exact text '" + expected + "'"
                     };
                 }
             };
