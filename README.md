@@ -175,10 +175,11 @@ you save may be your own.
 
 There is a short list of things I always put into my matcher messages:
 
-1. The actual and expected values must appear
+1. I should know which matcher failed by the message.  Make each one unique.
+1. The actual and expected values must appear.
 1. The actual should always appear before the expected. Common convention avoids confusion.
-1. Using a `dump()` method to report the entire 'actual' object is wordy, but may save you from starting the debugger
-1. The values should be bracketed in some way so whitespace errors are obvious
+1. Using a `dump()` method to report the entire 'actual' object is wordy, but may save you from starting the debugger.
+1. The values should be bracketed in some way so whitespace errors are obvious.
 
 
 Bracketing turns this:
